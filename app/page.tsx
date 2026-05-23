@@ -21,7 +21,7 @@ const TABS: { key: Filter; label: string }[] = [
   { key: "done",      label: "完了済み" },
 ];
 
-const TOAST_MS = 3000;
+const TOAST_MS = 2000;
 
 export default function Home() {
   const [tasks, setTasks]               = useState<Task[]>([]);

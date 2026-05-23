@@ -300,7 +300,7 @@
       if (toastTimer) clearTimeout(toastTimer);
       toastText.textContent = `「${text}」を完了しました`;
       toast.classList.add('show');
-      toastTimer = setTimeout(hideToast, 3000);
+      toastTimer = setTimeout(hideToast, 2000);
     }
 
     function hideToast() {
@@ -335,7 +335,7 @@
         lastCompletedId = id;
         justCompleted.add(id);
         showToast(task.text);
-        setTimeout(() => { justCompleted.delete(id); render(); }, 3000);
+        setTimeout(() => { justCompleted.delete(id); render(); }, 2000);
       }
       render();
       // チェックアニメーション（render後にDOMが更新されてから付与）
