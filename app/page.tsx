@@ -62,8 +62,8 @@ export default function Home() {
     .filter((t) => {
       if (filter === "active")    return !t.done;
       if (filter === "done")      return t.done;
-      if (filter === "important") return t.important;
-      if (filter === "urgent")    return t.urgent;
+      if (filter === "important") return t.important && !t.done;
+      if (filter === "urgent")    return t.urgent && !t.done;
       return true;
     })
     .sort((a, b) => Number(a.done) - Number(b.done));
