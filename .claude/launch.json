@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "todo-preview",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3000", "--directory", "C:\\Users\\sr950\\OneDrive\\デスクトップ\\デスクトップ\\その他\\todo-app"],
+      "port": 3000
+    }
+  ]
+}
