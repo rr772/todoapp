@@ -28,8 +28,9 @@ export default function Home() {
   const [input, setInput]               = useState("");
   const [filter, setFilter]             = useState<Filter>("all");
   const [mounted, setMounted]           = useState(false);
-  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
-  const [toast, setToast]               = useState<{ text: string; id: string } | null>(null);
+  const [justCompleted, setJustCompleted]   = useState<Set<string>>(new Set());
+  const [completingIds, setCompletingIds]   = useState<Set<string>>(new Set());
+  const [toast, setToast]                   = useState<{ text: string; id: string } | null>(null);
   const [dragOverId, setDragOverId]     = useState<string | null>(null);
   const dragId                          = useRef<string | null>(null);
   const toastTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -63,6 +64,8 @@ export default function Home() {
 
     if (task && !task.done) {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      setCompletingIds((prev) => new Set([...prev, id]));
+      setTimeout(() => setCompletingIds((prev) => { const s = new Set(prev); s.delete(id); return s; }), 500);
       setJustCompleted((prev) => new Set([...prev, id]));
       setToast({ text: task.text, id });
       toastTimer.current = setTimeout(() => {
@@ -213,9 +216,9 @@ export default function Home() {
                 {/* Checkbox */}
                 <button
                   onClick={() => toggleTask(task.id)}
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
                     task.done ? "bg-gray-900 border-gray-900" : "border-gray-300 hover:border-gray-500"
-                  }`}
+                  } ${completingIds.has(task.id) ? "check-completing" : ""}`}
                   aria-label={task.done ? "未完了に戻す" : "完了にする"}
                 >
                   {task.done && (
