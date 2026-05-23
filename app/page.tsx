@@ -26,6 +26,8 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [mounted, setMounted] = useState(false);
+  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
+  const [showToast, setShowToast] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,8 +58,18 @@ export default function Home() {
     inputRef.current?.focus();
   };
 
-  const toggleTask = (id: string) =>
+  const toggleTask = (id: string) => {
+    const task = tasks.find((t) => t.id === id);
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+    if (task && !task.done) {
+      setJustCompleted((prev) => new Set([...prev, id]));
+      setShowToast(true);
+      setTimeout(() => {
+        setJustCompleted((prev) => { const s = new Set(prev); s.delete(id); return s; });
+        setShowToast(false);
+      }, 1500);
+    }
+  };
 
   const toggleTag = (id: string, tag: "urgent" | "important") =>
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, [tag]: !t[tag] } : t)));
@@ -73,12 +85,21 @@ export default function Home() {
       if (filter === "urgent")    return t.urgent && !t.done;
       return true;
     })
-    .sort((a, b) => Number(a.done) - Number(b.done));
+    .sort((a, b) => {
+      const aBottom = a.done && !justCompleted.has(a.id);
+      const bBottom = b.done && !justCompleted.has(b.id);
+      return Number(aBottom) - Number(bBottom);
+    });
 
   const activeCount = tasks.filter((t) => !t.done).length;
 
   return (
     <main className="min-h-screen flex items-start justify-center pt-16 pb-16 px-4">
+      {showToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-5 py-3 rounded-2xl shadow-lg whitespace-nowrap animate-fade-in">
+          ✓ タスクを完了しました
+        </div>
+      )}
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-8">
