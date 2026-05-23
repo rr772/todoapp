@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ToDoリスト</title>
+  <title>RyutaのToDoリスト</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet" />
@@ -22,12 +22,10 @@
 
     .container { width: 100%; max-width: 480px; }
 
-    /* Header */
     .header { margin-bottom: 32px; }
     .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
     .header p { font-size: 13px; color: #aaa; margin-top: 4px; }
 
-    /* Input row */
     .input-row { display: flex; gap: 8px; margin-bottom: 24px; }
     .input-row input {
       flex: 1;
@@ -59,11 +57,10 @@
     .input-row button:active { transform: scale(0.96); }
     .input-row button:disabled { opacity: 0.3; cursor: not-allowed; }
 
-    /* Filter tabs */
     .filter-tabs {
       display: flex;
       gap: 4px;
-      background: #f0f0ec;
+      background: #d1d5db;
       padding: 4px;
       border-radius: 12px;
       margin-bottom: 16px;
@@ -77,7 +74,7 @@
       border: none;
       border-radius: 8px;
       background: transparent;
-      color: #aaa;
+      color: #6b7280;
       cursor: pointer;
       transition: all 0.15s;
     }
@@ -87,22 +84,21 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     }
 
-    /* Task list */
     .task-list { display: flex; flex-direction: column; gap: 8px; }
 
     .empty {
       text-align: center;
       padding: 64px 0;
       font-size: 13px;
-      color: #ccc;
+      color: #9ca3af;
       user-select: none;
     }
 
     .task-item {
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
+      gap: 10px;
+      padding: 12px 14px;
       background: #fff;
       border-radius: 12px;
       border: 1px solid #f0f0f0;
@@ -110,7 +106,6 @@
     }
     .task-item:hover { transform: translateX(2px); }
 
-    /* Circle checkbox */
     .check-btn {
       width: 20px;
       height: 20px;
@@ -139,7 +134,31 @@
     }
     .task-text.done { color: #d1d5db; text-decoration: line-through; }
 
-    /* Delete button */
+    /* タグボタン（急ぎ・重要） */
+    .tag-btns {
+      display: flex;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .tag-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      opacity: 0.25;
+    }
+    .tag-btn:hover { opacity: 0.6; background: #f3f4f6; }
+    .tag-btn.active { opacity: 1; }
+    .tag-btn.urgent.active  { background: #fff7ed; }
+    .tag-btn.important.active { background: #fefce8; }
+
     .delete-btn {
       opacity: 0;
       padding: 4px;
@@ -150,19 +169,15 @@
       cursor: pointer;
       transition: all 0.15s;
       display: flex;
+      flex-shrink: 0;
     }
     .task-item:hover .delete-btn { opacity: 1; }
     .delete-btn:hover { color: #f87171; background: #fef2f2; }
 
-    /* Footer */
-    .footer {
-      margin-top: 24px;
-      display: flex;
-      justify-content: flex-end;
-    }
+    .footer { margin-top: 24px; display: flex; justify-content: flex-end; }
     .clear-btn {
       font-size: 12px;
-      color: #ccc;
+      color: #9ca3af;
       background: none;
       border: none;
       cursor: pointer;
@@ -187,6 +202,8 @@
     <div class="filter-tabs">
       <button class="active" data-filter="all">すべて</button>
       <button data-filter="active">未完了</button>
+      <button data-filter="important">⭐重要</button>
+      <button data-filter="urgent">🏃急ぎ</button>
       <button data-filter="done">完了済み</button>
     </div>
 
@@ -213,11 +230,19 @@
     }
 
     function render() {
-      const filtered = tasks.filter(t => {
+      let filtered = tasks.filter(t => {
         if (filter === 'active') return !t.done;
         if (filter === 'done') return t.done;
+        if (filter === 'important') return t.important;
+        if (filter === 'urgent') return t.urgent;
         return true;
       });
+
+      // 完了済みを一番下に
+      filtered = [
+        ...filtered.filter(t => !t.done),
+        ...filtered.filter(t => t.done),
+      ];
 
       const active = tasks.filter(t => !t.done).length;
       subtitle.textContent = active === 0
@@ -239,6 +264,10 @@
             </svg>
           </button>
           <span class="task-text ${t.done ? 'done' : ''}">${escHtml(t.text)}</span>
+          <div class="tag-btns">
+            <button class="tag-btn urgent ${t.urgent ? 'active' : ''}" onclick="toggleTag('${t.id}','urgent')" title="急ぎ">🏃</button>
+            <button class="tag-btn important ${t.important ? 'active' : ''}" onclick="toggleTag('${t.id}','important')" title="重要">⭐</button>
+          </div>
           <button class="delete-btn" onclick="remove('${t.id}')" aria-label="削除">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
               <path d="M6 18L18 6M6 6l12 12"/>
@@ -255,7 +284,7 @@
     function addTask() {
       const text = input.value.trim();
       if (!text) return;
-      tasks.unshift({ id: Date.now().toString(), text, done: false });
+      tasks.unshift({ id: Date.now().toString(), text, done: false, urgent: false, important: false });
       save();
       render();
       input.value = '';
@@ -265,6 +294,12 @@
 
     function toggle(id) {
       tasks = tasks.map(t => t.id === id ? { ...t, done: !t.done } : t);
+      save();
+      render();
+    }
+
+    function toggleTag(id, tag) {
+      tasks = tasks.map(t => t.id === id ? { ...t, [tag]: !t[tag] } : t);
       save();
       render();
     }

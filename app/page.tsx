@@ -6,10 +6,20 @@ type Task = {
   id: string;
   text: string;
   done: boolean;
+  urgent: boolean;
+  important: boolean;
   createdAt: number;
 };
 
-type Filter = "all" | "active" | "done";
+type Filter = "all" | "active" | "important" | "urgent" | "done";
+
+const TABS: { key: Filter; label: string }[] = [
+  { key: "all",       label: "すべて"  },
+  { key: "active",    label: "未完了"  },
+  { key: "important", label: "⭐重要"  },
+  { key: "urgent",    label: "🏃急ぎ"  },
+  { key: "done",      label: "完了済み" },
+];
 
 export default function Home() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,49 +30,43 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem("todo-tasks");
-    if (saved) {
-      setTasks(JSON.parse(saved));
-    }
+    if (saved) setTasks(JSON.parse(saved));
     setMounted(true);
   }, []);
 
   useEffect(() => {
-    if (mounted) {
-      localStorage.setItem("todo-tasks", JSON.stringify(tasks));
-    }
+    if (mounted) localStorage.setItem("todo-tasks", JSON.stringify(tasks));
   }, [tasks, mounted]);
 
   const addTask = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
     setTasks((prev) => [
-      {
-        id: crypto.randomUUID(),
-        text: trimmed,
-        done: false,
-        createdAt: Date.now(),
-      },
+      { id: crypto.randomUUID(), text: trimmed, done: false, urgent: false, important: false, createdAt: Date.now() },
       ...prev,
     ]);
     setInput("");
     inputRef.current?.focus();
   };
 
-  const toggleTask = (id: string) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
-  };
+  const toggleTask = (id: string) =>
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
 
-  const deleteTask = (id: string) => {
+  const toggleTag = (id: string, tag: "urgent" | "important") =>
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, [tag]: !t[tag] } : t)));
+
+  const deleteTask = (id: string) =>
     setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
 
-  const filteredTasks = tasks.filter((t) => {
-    if (filter === "active") return !t.done;
-    if (filter === "done") return t.done;
-    return true;
-  });
+  const filtered = tasks
+    .filter((t) => {
+      if (filter === "active")    return !t.done;
+      if (filter === "done")      return t.done;
+      if (filter === "important") return t.important;
+      if (filter === "urgent")    return t.urgent;
+      return true;
+    })
+    .sort((a, b) => Number(a.done) - Number(b.done));
 
   const activeCount = tasks.filter((t) => !t.done).length;
 
@@ -71,13 +75,9 @@ export default function Home() {
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
-            RyutaのToDo
-          </h1>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">RyutaのToDo</h1>
           <p className="text-sm text-gray-400 mt-1">
-            {activeCount === 0
-              ? "すべて完了しました 🎉"
-              : `${activeCount}件の未完了タスク`}
+            {activeCount === 0 ? "すべて完了しました 🎉" : `${activeCount}件の未完了タスク`}
           </p>
         </div>
 
@@ -102,69 +102,73 @@ export default function Home() {
         </div>
 
         {/* Filter tabs */}
-        <div className="flex gap-1 mb-4 bg-gray-100 p-1 rounded-xl">
-          {(["all", "active", "done"] as Filter[]).map((f) => (
+        <div className="flex gap-1 mb-4 bg-gray-200 p-1 rounded-xl">
+          {TABS.map(({ key, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={key}
+              onClick={() => setFilter(key)}
               className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                filter === f
+                filter === key
                   ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              {f === "all" ? "すべて" : f === "active" ? "未完了" : "完了済み"}
+              {label}
             </button>
           ))}
         </div>
 
         {/* Task list */}
         <div className="space-y-2">
-          {!mounted ? null : filteredTasks.length === 0 ? (
+          {!mounted ? null : filtered.length === 0 ? (
             <div className="text-center py-16 text-gray-300 text-sm select-none">
               タスクがありません
             </div>
           ) : (
-            filteredTasks.map((task) => (
+            filtered.map((task) => (
               <div
                 key={task.id}
-                className="task-item flex items-center gap-3 px-4 py-3.5 bg-white rounded-xl border border-gray-100 group"
+                className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl border border-gray-100 group transition-transform hover:translate-x-0.5"
               >
                 {/* Checkbox */}
                 <button
                   onClick={() => toggleTask(task.id)}
                   className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                    task.done
-                      ? "bg-gray-900 border-gray-900"
-                      : "border-gray-300 hover:border-gray-500"
+                    task.done ? "bg-gray-900 border-gray-900" : "border-gray-300 hover:border-gray-500"
                   }`}
                   aria-label={task.done ? "未完了に戻す" : "完了にする"}
                 >
                   {task.done && (
-                    <svg
-                      className="w-2.5 h-2.5 text-white"
-                      fill="none"
-                      viewBox="0 0 10 10"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M1.5 5l2.5 2.5 4.5-4.5"
-                      />
+                    <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 10 10" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M1.5 5l2.5 2.5 4.5-4.5" />
                     </svg>
                   )}
                 </button>
 
                 {/* Text */}
-                <span
-                  className={`flex-1 text-sm leading-relaxed transition-all ${
-                    task.done ? "text-gray-300 line-through" : "text-gray-800"
-                  }`}
-                >
+                <span className={`flex-1 text-sm leading-relaxed transition-all ${task.done ? "text-gray-300 line-through" : "text-gray-800"}`}>
                   {task.text}
                 </span>
+
+                {/* Tags */}
+                <div className="flex gap-1 flex-shrink-0">
+                  {(["urgent", "important"] as const).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(task.id, tag)}
+                      className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-all ${
+                        task[tag]
+                          ? tag === "urgent"
+                            ? "opacity-100 bg-orange-50"
+                            : "opacity-100 bg-yellow-50"
+                          : "opacity-25 hover:opacity-60"
+                      }`}
+                      aria-label={tag === "urgent" ? "急ぎ" : "重要"}
+                    >
+                      {tag === "urgent" ? "🏃" : "⭐"}
+                    </button>
+                  ))}
+                </div>
 
                 {/* Delete */}
                 <button
@@ -172,18 +176,8 @@ export default function Home() {
                   className="opacity-0 group-hover:opacity-100 p-1 text-gray-300 hover:text-red-400 transition-all rounded-lg hover:bg-red-50"
                   aria-label="削除"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
@@ -196,7 +190,7 @@ export default function Home() {
           <div className="mt-6 flex justify-end">
             <button
               onClick={() => setTasks((prev) => prev.filter((t) => !t.done))}
-              className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+              className="text-xs text-gray-400 hover:text-red-400 transition-colors"
             >
               完了済みを削除
             </button>
