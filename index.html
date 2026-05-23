@@ -284,7 +284,7 @@
     function addTask() {
       const text = input.value.trim();
       if (!text) return;
-      tasks.unshift({ id: Date.now().toString(), text, done: false, urgent: false, important: false });
+      tasks.unshift({ id: Date.now().toString(), text, done: false, urgent: filter === 'urgent', important: filter === 'important' });
       save();
       render();
       input.value = '';

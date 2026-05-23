@@ -42,7 +42,14 @@ export default function Home() {
     const trimmed = input.trim();
     if (!trimmed) return;
     setTasks((prev) => [
-      { id: crypto.randomUUID(), text: trimmed, done: false, urgent: false, important: false, createdAt: Date.now() },
+      {
+        id: crypto.randomUUID(),
+        text: trimmed,
+        done: false,
+        urgent: filter === "urgent",
+        important: filter === "important",
+        createdAt: Date.now(),
+      },
       ...prev,
     ]);
     setInput("");
