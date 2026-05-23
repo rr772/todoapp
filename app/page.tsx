@@ -14,21 +14,26 @@ type Task = {
 type Filter = "all" | "active" | "important" | "urgent" | "done";
 
 const TABS: { key: Filter; label: string }[] = [
-  { key: "all",       label: "すべて"  },
-  { key: "active",    label: "未完了"  },
-  { key: "important", label: "⭐重要"  },
-  { key: "urgent",    label: "🏃急ぎ"  },
+  { key: "all",       label: "すべて"   },
+  { key: "active",    label: "未完了"   },
+  { key: "important", label: "⭐重要"   },
+  { key: "urgent",    label: "🏃急ぎ"   },
   { key: "done",      label: "完了済み" },
 ];
 
+const TOAST_MS = 3000;
+
 export default function Home() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [input, setInput] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [mounted, setMounted] = useState(false);
+  const [tasks, setTasks]               = useState<Task[]>([]);
+  const [input, setInput]               = useState("");
+  const [filter, setFilter]             = useState<Filter>("all");
+  const [mounted, setMounted]           = useState(false);
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
-  const [showToast, setShowToast] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast]               = useState<{ text: string; id: string } | null>(null);
+  const [dragOverId, setDragOverId]     = useState<string | null>(null);
+  const dragId                          = useRef<string | null>(null);
+  const toastTimer                      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef                        = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem("todo-tasks");
@@ -44,14 +49,8 @@ export default function Home() {
     const trimmed = input.trim();
     if (!trimmed) return;
     setTasks((prev) => [
-      {
-        id: crypto.randomUUID(),
-        text: trimmed,
-        done: false,
-        urgent: filter === "urgent",
-        important: filter === "important",
-        createdAt: Date.now(),
-      },
+      { id: crypto.randomUUID(), text: trimmed, done: false,
+        urgent: filter === "urgent", important: filter === "important", createdAt: Date.now() },
       ...prev,
     ]);
     setInput("");
@@ -60,22 +59,53 @@ export default function Home() {
 
   const toggleTask = (id: string) => {
     const task = tasks.find((t) => t.id === id);
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, done: !t.done } : t));
+
     if (task && !task.done) {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
       setJustCompleted((prev) => new Set([...prev, id]));
-      setShowToast(true);
-      setTimeout(() => {
+      setToast({ text: task.text, id });
+      toastTimer.current = setTimeout(() => {
         setJustCompleted((prev) => { const s = new Set(prev); s.delete(id); return s; });
-        setShowToast(false);
-      }, 1500);
+        setToast(null);
+      }, TOAST_MS);
     }
   };
 
+  const undoComplete = () => {
+    if (!toast) return;
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setTasks((prev) => prev.map((t) => t.id === toast.id ? { ...t, done: false } : t));
+    setJustCompleted((prev) => { const s = new Set(prev); s.delete(toast.id); return s; });
+    setToast(null);
+  };
+
   const toggleTag = (id: string, tag: "urgent" | "important") =>
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, [tag]: !t[tag] } : t)));
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, [tag]: !t[tag] } : t));
 
   const deleteTask = (id: string) =>
     setTasks((prev) => prev.filter((t) => t.id !== id));
+
+  /* Drag & Drop */
+  const onDragStart = (id: string) => { dragId.current = id; };
+  const onDragEnd   = () => { dragId.current = null; setDragOverId(null); };
+  const onDragOver  = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (id !== dragId.current) setDragOverId(id);
+  };
+  const onDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverId(null);
+    if (!dragId.current || dragId.current === targetId) return;
+    setTasks((prev) => {
+      const next = [...prev];
+      const from = next.findIndex((t) => t.id === dragId.current);
+      const to   = next.findIndex((t) => t.id === targetId);
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  };
 
   const filtered = tasks
     .filter((t) => {
@@ -95,11 +125,22 @@ export default function Home() {
 
   return (
     <main className="min-h-screen flex items-start justify-center pt-16 pb-16 px-4">
-      {showToast && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-sm px-5 py-3 rounded-2xl shadow-lg whitespace-nowrap animate-fade-in">
-          ✓ タスクを完了しました
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-gray-800 text-white text-sm px-4 py-3 rounded-2xl shadow-xl animate-fade-in whitespace-nowrap">
+          <span className="max-w-[200px] overflow-hidden text-ellipsis">
+            「{toast.text}」を完了しました
+          </span>
+          <button
+            onClick={undoComplete}
+            className="px-2.5 py-1 rounded-lg text-xs border border-white/25 bg-white/10 hover:bg-white/25 transition-colors"
+          >
+            元に戻す
+          </button>
         </div>
       )}
+
       <div className="w-full max-w-lg">
         {/* Header */}
         <div className="mb-8">
@@ -132,13 +173,9 @@ export default function Home() {
         {/* Filter tabs */}
         <div className="flex gap-1 mb-4 bg-gray-200 p-1 rounded-xl">
           {TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
+            <button key={key} onClick={() => setFilter(key)}
               className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                filter === key
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                filter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
               }`}
             >
               {label}
@@ -149,15 +186,30 @@ export default function Home() {
         {/* Task list */}
         <div className="space-y-2">
           {!mounted ? null : filtered.length === 0 ? (
-            <div className="text-center py-16 text-gray-300 text-sm select-none">
-              タスクがありません
-            </div>
+            <div className="text-center py-16 text-gray-300 text-sm select-none">タスクがありません</div>
           ) : (
             filtered.map((task) => (
               <div
                 key={task.id}
-                className="flex items-center gap-2 px-4 py-3 bg-white rounded-xl border border-gray-100 group transition-transform hover:translate-x-0.5"
+                draggable
+                onDragStart={() => onDragStart(task.id)}
+                onDragEnd={onDragEnd}
+                onDragOver={(e) => onDragOver(e, task.id)}
+                onDragLeave={() => setDragOverId(null)}
+                onDrop={(e) => onDrop(e, task.id)}
+                className={`flex items-center gap-2 px-3 py-3 bg-white rounded-xl border-2 transition-all group ${
+                  dragOverId === task.id ? "border-gray-500" : "border-transparent"
+                }`}
               >
+                {/* Drag handle */}
+                <div className="cursor-grab active:cursor-grabbing text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor">
+                    <circle cx="3" cy="2.5"  r="1.2"/><circle cx="7" cy="2.5"  r="1.2"/>
+                    <circle cx="3" cy="7"    r="1.2"/><circle cx="7" cy="7"    r="1.2"/>
+                    <circle cx="3" cy="11.5" r="1.2"/><circle cx="7" cy="11.5" r="1.2"/>
+                  </svg>
+                </div>
+
                 {/* Checkbox */}
                 <button
                   onClick={() => toggleTask(task.id)}
@@ -181,17 +233,12 @@ export default function Home() {
                 {/* Tags */}
                 <div className="flex gap-1 flex-shrink-0">
                   {(["urgent", "important"] as const).map((tag) => (
-                    <button
-                      key={tag}
-                      onClick={() => toggleTag(task.id, tag)}
+                    <button key={tag} onClick={() => toggleTag(task.id, tag)}
                       className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-all ${
                         task[tag]
-                          ? tag === "urgent"
-                            ? "opacity-100 bg-orange-50"
-                            : "opacity-100 bg-yellow-50"
+                          ? tag === "urgent" ? "opacity-100 bg-orange-50" : "opacity-100 bg-yellow-50"
                           : "opacity-25 hover:opacity-60"
                       }`}
-                      aria-label={tag === "urgent" ? "急ぎ" : "重要"}
                     >
                       {tag === "urgent" ? "🏃" : "⭐"}
                     </button>
