@@ -112,10 +112,10 @@ export default function Home() {
 
   const filtered = tasks
     .filter((t) => {
-      if (filter === "active")    return !t.done;
+      if (filter === "active")    return !t.done || justCompleted.has(t.id);
       if (filter === "done")      return t.done;
-      if (filter === "important") return t.important && !t.done;
-      if (filter === "urgent")    return t.urgent && !t.done;
+      if (filter === "important") return t.important && (!t.done || justCompleted.has(t.id));
+      if (filter === "urgent")    return t.urgent && (!t.done || justCompleted.has(t.id));
       return true;
     })
     .sort((a, b) => {
